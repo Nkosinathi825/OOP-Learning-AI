@@ -1,0 +1,50 @@
+Domain context
+
+You're building the core logic for a coffee shop ordering system — the part that runs behind the counter when a barista takes an order. Customers order drinks, possibly with customizations (extra shot, oat milk, decaf, etc.). The system needs to compute the price, hold the order until it's paid, and produce a receipt.
+
+This is the domain logic only — no UI, no database, no payment gateway integration. Think of it as the library a UI or service layer would call into.
+
+Functional requirements
+	1.The shop sells a fixed menu of base drinks: Espresso, Latte, Cappuccino, Americano. Each has a base price.
+
+	2.A drink can have zero or more customizations. Supported customizations:
+		Extra shot (+$0.80 each, can be added multiple times)
+
+		Alternative milk: oat, almond, soy (+$0.60, at most one alt-milk per drink)
+
+		Decaf (no price change)
+
+		Extra-large size (+$1.00)
+
+	3.A customer builds an order containing one or more drinks. The order computes its total price.
+
+	4.An order has a lifecycle: it starts as OPEN (drinks can still be added), moves to PAID when paid, and then to READY when the drinks have been made. Drinks cannot be added after the order is paid.
+
+	5.Paying for an order requires an amount; if the amount is less than the total, payment fails. Overpayment is allowed (the difference is change owed — track it).
+
+	6.The order can produce a receipt: a textual summary listing each drink, its customizations, 
+	line-item prices, the total, the amount paid, and any change.
+
+Constraints / non-goals
+	No persistence, no UI, no concurrency, no networking.
+
+	No tax, no discounts, no loyalty points. Just base price + customizations.
+
+	Currency is USD only. Use whatever numeric type you think is appropriate, but be ready to defend it.
+
+	No need for an inventory system (assume infinite beans).
+
+	A single order is built and paid for in one session; no partial payments, no order modifications after payment.
+
+Assumptions you're allowed to make
+
+	All prices are positive.
+
+	The receipt format is yours to design — it just needs to contain the listed information in a readable form.
+
+	You can decide whether customizations are values, objects, enums, or something else. That's part of the design problem.
+	
+	You can decide how strictly to enforce the lifecycle — but you do have to enforce it somewhere.
+	Scope guidance
+
+Aim for 4–7 classes/interfaces/enums total. There are at least two reasonable approaches here with real tradeoffs (think about how customizations attach to drinks, and how pricing is computed — those are the two big design choices). Don't over-engineer. Don't add abstractions you don't need yet.

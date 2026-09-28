@@ -1,0 +1,10 @@
+package coffee.shop.ordering.system.com.model.exception;
+
+public class OrderUpdateException extends RuntimeException {
+
+  public OrderUpdateException(String message) {
+    super(message);
+  }
+
+  public OrderUpdateException(){};
+}
