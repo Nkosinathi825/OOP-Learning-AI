@@ -1,0 +1,119 @@
+What OCP actually says
+
+Bertrand Meyer, 1988:
+
+Software entities should be open for extension, closed for modification.
+
+Two clauses, both load-bearing:
+
+Open for extension — you can add new behavior to the system.
+Closed for modification — you do it without editing existing, working code.
+
+The whole point is the second clause. Adding new code is easy and almost always possible. The hard part is adding new behavior without touching code that already works.
+
+Why "closed for modification" matters
+
+Imagine you have a StandardCalculator that has been in production for two years. It's been tested, used millions of times, and the bugs have been hammered out of it. It works.
+
+Now happy hour arrives. You have two choices:
+
+Option A — modify it.
+
+java
+public class StandardCalculator {
+    public BigDecimal orderPrice(Order o) {
+        BigDecimal total = sumLineItems(o);
+        if (isHappyHour()) total = applyHappyHourDiscount(total, o);  // new line
+        return total;
+    }
+}
+
+Option B — extend it without touching it.
+
+java
+// StandardCalculator: untouched
+// new file:
+public class RuleApplyingCalculator implements PriceCalculator {
+    private final PriceCalculator delegate;
+    private final List<PricingRule> rules;
+    public BigDecimal orderPrice(Order o) {
+        BigDecimal price = delegate.orderPrice(o);
+        for (PricingRule r : rules) price = r.apply(o, price);
+        return price;
+    }
+}
+
+Both produce a working system. The difference shows up in three places:
+
+1. Risk surface. Option A puts a new conditional in a class that handles every order in the shop. If the new code has a bug, you broke pricing for everyone, not just happy-hour customers. Option B's bug only affects orders being routed through RuleApplyingCalculator. The blast radius is smaller.
+
+2. Regression testing. Option A means re-running every test for StandardCalculator because you changed it. Option B means StandardCalculator's tests still pass unchanged — you only need to test the new class.
+
+3. Reading the code six months later. Option A: a junior engineer reads StandardCalculator and sees a tangle of conditionals layered over time. Each conditional is a scar from a past requirement. By year five there are 14 of them. Option B: StandardCalculator still does one thing, clearly. New rules live in their own files.
+
+The deepest reason is this: working code is valuable. Code that has survived production is more trustworthy than code you wrote yesterday. Modifying it spends down its accumulated reliability. Extending it preserves it.
+
+What OCP doesn't say (common misreadings)
+
+These are the misunderstandings I've watched developers fall into for years.
+
+Misreading 1: "Never edit any code, ever."
+
+Wrong. OCP applies to behavior in response to new requirements. If you find a bug, you fix the code — that's not extension, that's correction. If you refactor for clarity, you edit code — that's not extension either. OCP is about how new requirements land.
+
+Misreading 2: "Add an interface to everything just in case."
+
+Also wrong. An interface with one implementation, built "in case we need a second one," is YAGNI. OCP doesn't say "predict every future variation." It says "when variation appears, structure it as extension rather than modification." Sometimes you discover the variation point only when the second case arrives — and at that moment, you refactor to introduce the seam. That's normal and correct.
+
+Misreading 3: "OCP is violated whenever I edit a class."
+
+Not exactly. OCP is about the kind of thing that prompts the edit. If a new pricing rule causes you to edit StandardCalculator — that's an OCP violation. If you change StandardCalculator because you found a bug or restructured the algorithm — that's just maintenance, not an OCP violation.
+
+Misreading 4 (yours, earlier): "It's violated, but by the correct actor."
+
+OCP is structural, not organizational. The question is: did existing working code have to change to accommodate this new requirement? If yes, OCP was violated. The team org chart doesn't change the answer.
+
+How to think about it during initial design
+
+This is the part you actually asked. The honest answer is: you can't make everything closed for modification, and trying to is a disaster. Every interface you add is a cost — a layer of indirection, a mental jump for the reader, a test surface, a file to maintain.
+
+The discipline is to figure out which axes of variation are real, and put your seams there. The other axes stay concrete.
+
+Here's the working rule:
+
+Make the system closed against the kinds of change you have evidence will happen. Stay open elsewhere.
+
+Three sources of "evidence":
+
+1. The current spec already shows variation.
+If requirements describe multiple kinds of customization (extra shot, alt milk, decaf, extra large), that's evidence of variation now. Your design needs a seam there — Customization interface or Extra enum or whatever shape you choose. This is not speculation; the variation is in the spec on day one.
+
+2. The planned next requirement creates variation.
+If you're going to add happy hour pricing in two weeks, and you know it now, design the calculator with rules in mind. This is what we did in Extension 2. Not speculation — concrete imminent need.
+
+3. Domain knowledge predicts variation with high probability.
+Some axes are reliable: pricing rules in any commerce system, notification channels in any messaging system, payment methods in any checkout system. You don't need a spec to know these will multiply. The cost of building a seam is low; the probability of a second case is near 1. Build it.
+
+Outside those three sources: stay concrete. A Receipt class that produces text. If JSON receipts arrive later, refactor. A Drink with fixed fields. If new drink kinds arrive, refactor. Refactoring later is cheap when the design is clean. Speculative interfaces are not free.
+
+will added a new method on an existing class be considered modification or extension
+
+Modification. And it's a sharper distinction than it first looks.
+
+OCP's "extension" doesn't mean "writing more code." It means adding new behavior without touching what already exists. A new method is touching what already exists — you opened the file, edited the class, recompiled it, all its tests need to be re-checked. That's modification.
+
+Concretely, the contrast is:
+
+java
+// MODIFICATION — adding a method to an existing class
+public class StandardCalculator {
+    public BigDecimal orderPrice(Order o) { ... }
+    public BigDecimal happyHourPrice(Order o) { ... }   // new method = edit
+}
+
+// EXTENSION — new behavior in a new class, existing class untouched
+public class HappyHourCalculator implements PriceCalculator {
+    public BigDecimal orderPrice(Order o) { ... }
+}
+// StandardCalculator.java: not opened, not edited, not recompiled
+The git diff makes the difference visible: in the first case, git diff shows changes to StandardCalculator.java. In the second, StandardCalculator.java doesn't appear in the diff at all. OCP is the second pattern.
